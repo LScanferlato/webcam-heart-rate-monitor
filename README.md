@@ -54,7 +54,9 @@ responsabilità di configurazione, elaborazione del segnale e interfaccia utente
 |----------------------|--------------------------------------------------------------------|
 | `config.py`          | Parametri di configurazione del sistema                           |
 | `signal_processor.py`| Trasformazioni nel dominio spaziale e frequenziale del segnale    |
-| `main.py`            | Orchestrazione del flusso di acquisizione e visualizzazione       |
+| `main.py`            | Orchestrazione del flusso di acquisizione e visualizzazione (CLI) |
+| `web_server.py`      | Server web Flask con API REST per elaborazione via browser        |
+| `templates/index.html`| Interfaccia utente web con accesso webcam lato client            |
 
 ### 2.2 Diagramma di flusso
 
@@ -122,6 +124,7 @@ della componente pulsatile.
 - Python ≥ 3.8
 - numpy ≥ 1.21.0
 - opencv-python ≥ 4.5.5
+- Flask ≥ 2.2.0 (solo per la modalità web)
 
 ### 4.3 Installazione delle dipendenze
 
@@ -133,14 +136,18 @@ pip install -r requirements.txt
 
 ## 5. Modalità operative
 
-### 5.1 Acquisizione da webcam in tempo reale
+Il sistema supporta due modalità operative: una modalità nativa tramite interfaccia
+a riga di comando (CLI) con finestra OpenCV, e una modalità web che consente
+l'elaborazione direttamente dal browser.
+
+### 5.1 Modalità CLI — Acquisizione da webcam
 
 ```bash
 python main.py
 ```
 
-Il sistema avvia l'acquisizione dalla webcam predefinita (device index 0) e apre una
-finestra di visualizzazione. La fase di inizializzazione richiede approssimativamente
+Avvia l'acquisizione dalla webcam predefinita (device index 0) e apre una finestra
+di visualizzazione OpenCV. La fase di inizializzazione richiede approssimativamente
 10 secondi per il riempimento del buffer circolare. Durante l'esecuzione vengono
 generati due file video nella directory di lavoro corrente:
 
@@ -149,7 +156,7 @@ generati due file video nella directory di lavoro corrente:
 | `video_originale.mp4`   | Flusso video originale senza elaborazione        |
 | `video_elaborato.mp4`   | Flusso video con magnificazione cromatica e BPM  |
 
-### 5.2 Analisi di un file video pre-acquisito
+### 5.2 Modalità CLI — Analisi di un file video pre-acquisito
 
 ```bash
 python main.py <percorso_video>
@@ -158,9 +165,54 @@ python main.py <percorso_video>
 Il file video deve presentare risoluzione 320×240 pixel e frequenza di
 acquisizione di 15 fotogrammi al secondo.
 
-### 5.3 Terminazione del programma
+### 5.3 Modalità CLI — Terminazione
 
 Premere il tasto `q` per terminare l'esecuzione e rilasciare le risorse allocate.
+
+### 5.4 Modalità web — Server
+
+```bash
+python web_server.py
+```
+
+Avvia un server HTTP sulla porta 5000 dell'interfaccia di loopback
+(`http://127.0.0.1:5000`). Il server espone i seguenti endpoint:
+
+| Endpoint           | Metodo | Descrizione                                          |
+|--------------------|--------|------------------------------------------------------|
+| `/`                | GET    | Serve la pagina web `index.html`                     |
+| `/api/elabora`     | POST   | Riceve un fotogramma JPEG (base64) e restituisce BPM e ROI elaborata |
+
+L'elaborazione avviene lato server mediante la classe `ElaboratoreBattito`
+(in `web_server.py`), che mantiene lo stato del buffer circolare tra richieste
+HTTP successive. La comunicazione avviene in formato JSON:
+
+**Richiesta:**
+```json
+{ "immagine": "<dati_jpeg_codificati_in_base64>" }
+```
+
+**Risposta:**
+```json
+{
+  "bpm": 72.5,
+  "roi": "<roi_elaborata_in_base64>",
+  "pronto": true
+}
+```
+
+### 5.5 Modalità web — Client
+
+Aprire il browser all'indirizzo `http://127.0.0.1:5000`. Il client:
+
+1. Richiede l'accesso alla webcam tramite l'API `navigator.mediaDevices.getUserMedia()`
+2. Acquisisce i fotogrammi alla risoluzione di 320×240 pixel a circa 15 fps
+3. Trasmette ciascun fotogramma al server come JPEG in codifica base64
+4. Riceve la regione di interesse (ROI) elaborata e il valore BPM corrente
+5. Sovrappone la ROI amplificata al video live e aggiorna l'interfaccia
+
+Il client espone inoltre un controllo per l'acquisizione di screenshot
+dell'elaborazione corrente.
 
 ---
 
@@ -180,7 +232,48 @@ Premere il tasto `q` per terminare l'esecuzione e rilasciare le risorse allocate
 
 ---
 
-## 7. Note legali e licenza
+## 7. Architettura del server web
+
+### 7.1 Ciclo di elaborazione lato server
+
+Il server Flask delega l'elaborazione a un'istanza di `ElaboratoreBattito`,
+che mantiene uno stato persistente tra richieste HTTP successive:
+
+```
+┌──────────────┐     POST /api/elabora     ┌──────────────────┐
+│   Browser    │ ──── JPEG (base64) ──────→ │  Flask server    │
+│  (webcam)    │                            │  web_server.py   │
+│              │ ←── JSON (BPM + ROI) ──── │                  │
+└──────────────┘                            └──────────────────┘
+                                                    │
+                                           ┌────────▼────────┐
+                                           │ ElaboratoreBattito│
+                                           │ • buffer circolare│
+                                           │ • piramide Gauss. │
+                                           │ • FFT / filtro   │
+                                           │ • amplificazione │
+                                           └─────────────────┘
+```
+
+Il buffer circolare di 150 fotogrammi (`config.DIMENSIONE_BUFFER`) garantisce la
+continuità temporale del segnale nonostante la natura stateless del protocollo HTTP.
+
+### 7.2 Ciclo di elaborazione lato client
+
+Il client JavaScript esegue un loop asincrono a 15 fps:
+
+1. Acquisizione del fotogramma da `<video>` a `<canvas>` offscreen
+2. Conversione in JPEG (`canvas.toBlob`, qualità 0.8)
+3. Codifica base64 e trasmissione via `fetch()` a `/api/elabora`
+4. Decodifica della risposta e rendering della ROI su `<canvas>` sovrapposto
+5. Aggiornamento dell'indicatore BPM e dello stato del semaforo di caricamento
+
+Un meccanismo di mutex (`inAttesa`) impedisce la sovrapposizione di richieste
+concorrenti, garantendo l'integrità sequenziale del buffer lato server.
+
+---
+
+## 8. Note legali e licenza
 
 Questo progetto è distribuito esclusivamente a scopo educativo e di ricerca. Non è
 autorizzato l'uso commerciale del software o di sue parti. L'algoritmo EVM è di
