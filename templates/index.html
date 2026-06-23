@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitoraggio Battito Cardiaco</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0b0e14;
+    color: #e8edf5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+  h1 {
+    font-size: 1.6rem;
+    font-weight: 300;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+    color: #89b4fa;
+  }
+  .sottotitolo {
+    font-size: 0.85rem;
+    color: #6c7086;
+    margin-bottom: 1.5rem;
+  }
+  .contenitore-video {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    background: #1e1e2e;
+    width: 640px;
+    max-width: 100%;
+  }
+  .contenitore-video video,
+  .contenitore-video canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .contenitore-video canvas {
+    position: absolute;
+    top: 0; left: 0;
+  }
+  .barra-stato {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.25rem;
+    padding: 0.75rem 1.5rem;
+    background: #181c25;
+    border-radius: 10px;
+    min-width: 280px;
+    justify-content: center;
+  }
+  .bpm-label {
+    font-size: 0.8rem;
+    color: #6c7086;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .bpm-valore {
+    font-size: 2.2rem;
+    font-weight: 600;
+    color: #a6e3a1;
+    font-variant-numeric: tabular-nums;
+  }
+  .bpm-valore.in-attesa { color: #f9e2af; }
+  .bpm-valore.errore { color: #f38ba8; }
+  .indicatore {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #585b70;
+    transition: background 0.3s;
+  }
+  .indicatore.pronto { background: #a6e3a1; box-shadow: 0 0 8px #a6e3a180; }
+  .indicatore.in-attesa { background: #f9e2af; }
+  .pulsanti {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+  button {
+    padding: 0.6rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    background: #313244;
+    color: #cdd6f4;
+    transition: background 0.2s;
+  }
+  button:hover { background: #45475a; }
+  button.attivo { background: #89b4fa; color: #111; }
+  button.attivo:hover { background: #74c7ec; }
+  .errore-box {
+    margin-top: 1rem;
+    padding: 0.75rem 1.25rem;
+    background: #2a1b1b;
+    border-radius: 8px;
+    color: #f38ba8;
+    font-size: 0.85rem;
+    display: none;
+    max-width: 640px;
+    text-align: center;
+  }
+  @media (max-width: 700px) {
+    .contenitore-video { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Monitoraggio Battito Cardiaco</h1>
+<p class="sottotitolo">Fotopletismografia da webcam in tempo reale</p>
+
+<div class="contenitore-video">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="risultato"></canvas>
+</div>
+
+<div class="barra-stato">
+  <span class="indicatore" id="indicatore"></span>
+  <div>
+    <div class="bpm-label">Frequenza cardiaca</div>
+    <div class="bpm-valore in-attesa" id="bpm">—</div>
+  </div>
+</div>
+
+<div class="pulsanti">
+  <button id="btnAvvia" class="attivo">Avvia webcam</button>
+  <button id="btnSalva">Salva screenshot</button>
+</div>
+
+<div class="errore-box" id="errore"></div>
+
+<script>
+(() => {
+  const video     = document.getElementById('video');
+  const canvas    = document.getElementById('risultato');
+  const ctx       = canvas.getContext('2d');
+  const bpmEl     = document.getElementById('bpm');
+  const indicatore = document.getElementById('indicatore');
+  const erroreEl  = document.getElementById('errore');
+  const btnAvvia  = document.getElementById('btnAvvia');
+  const btnSalva  = document.getElementById('btnSalva');
+
+  const LARGHEZZA = 320;
+  const ALTEZZA   = 240;
+  const AREA_LARG = 160;
+  const AREA_ALT  = 120;
+
+  const INTERVALLO_MS = 1000 / 15;
+
+  canvas.width  = LARGHEZZA;
+  canvas.height = ALTEZZA;
+
+  let flusso     = null;
+  let timer      = null;
+  let inEsecuzione = false;
+  let bpmCorrente = '—';
+
+  /* --- Webcam --- */
+  async function avviaWebcam() {
+    ferma();
+    try {
+      flusso = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { exact: LARGHEZZA },
+          height: { exact: ALTEZZA },
+          frameRate: { ideal: 15 }
+        }
+      });
+      video.srcObject = flusso;
+      await video.play();
+      btnAvvia.textContent = '● In elaborazione';
+      btnAvvia.classList.add('attivo');
+      nascondiErrore();
+      avviaElaborazione();
+    } catch (err) {
+      let msg = 'Impossibile accedere alla webcam. ';
+      if (err.name === 'NotAllowedError') msg += 'Permesso negato.';
+      else if (err.name === 'NotFoundError') msg += 'Nessuna webcam trovata.';
+      else msg += err.message;
+      mostraErrore(msg);
+      btnAvvia.textContent = 'Avvia webcam';
+    }
+  }
+
+  function ferma() {
+    if (timer) { clearInterval(timer); timer = null; }
+    inEsecuzione = false;
+    if (flusso) {
+      flusso.getTracks().forEach(t => t.stop());
+      flusso = null;
+    }
+    video.srcObject = null;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    btnAvvia.textContent = 'Avvia webcam';
+    btnAvvia.classList.add('attivo');
+  }
+
+  /* --- Elaborazione frame --- */
+  function avviaElaborazione() {
+    inEsecuzione = true;
+
+    const offscreen = document.createElement('canvas');
+    offscreen.width  = LARGHEZZA;
+    offscreen.height = ALTEZZA;
+    const offCtx = offscreen.getContext('2d');
+
+    let inAttesa = false;
+
+    timer = setInterval(async () => {
+      if (!inEsecuzione || inAttesa) return;
+      inAttesa = true;
+
+      try {
+        offCtx.drawImage(video, 0, 0, LARGHEZZA, ALTEZZA);
+        offscreen.toBlob(async (blob) => {
+          if (!blob) { inAttesa = false; return; }
+          try {
+            const base64 = await blobParaBase64(blob);
+            const risp = await fetch('/api/elabora', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ immagine: base64 })
+            });
+            const dati = await risp.json();
+
+            if (dati.roi) {
+              const img = new Image();
+              img.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const ox = LARGHEZZA / 2 - AREA_LARG / 2;
+                const oy = ALTEZZA   / 2 - AREA_ALT  / 2;
+                ctx.drawImage(img, ox, oy, AREA_LARG, AREA_ALT);
+                ctx.strokeStyle = 'rgba(0,255,0,0.7)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(ox, oy, AREA_LARG, AREA_ALT);
+                inAttesa = false;
+              };
+              img.src = 'data:image/jpeg;base64,' + dati.roi;
+            } else {
+              inAttesa = false;
+            }
+
+            if (dati.pronto && dati.bpm != null) {
+              bpmCorrente = Math.round(dati.bpm);
+              bpmEl.textContent = bpmCorrente + ' BPM';
+              bpmEl.className = 'bpm-valore';
+              indicatore.className = 'indicatore pronto';
+            } else if (dati.bpm != null) {
+              bpmEl.textContent = 'Calcolo...';
+              bpmEl.className = 'bpm-valore in-attesa';
+              indicatore.className = 'indicatore in-attesa';
+            }
+          } catch (_) {
+            inAttesa = false;
+          }
+        }, 'image/jpeg', 0.8);
+      } catch (_) {
+        inAttesa = false;
+      }
+    }, INTERVALLO_MS);
+  }
+
+  function blobParaBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  /* --- Screenshot --- */
+  function salvaScreenshot() {
+    const temp = document.createElement('canvas');
+    temp.width  = LARGHEZZA;
+    temp.height = ALTEZZA;
+    const tCtx = temp.getContext('2d');
+    tCtx.drawImage(video, 0, 0);
+    tCtx.drawImage(canvas, 0, 0);
+    tCtx.strokeStyle = 'rgba(0,255,0,0.7)';
+    tCtx.lineWidth = 2;
+    tCtx.strokeRect(LARGHEZZA/2 - AREA_LARG/2, ALTEZZA/2 - AREA_ALT/2, AREA_LARG, AREA_ALT);
+    tCtx.fillStyle = '#a6e3a1';
+    tCtx.font = 'bold 20px monospace';
+    tCtx.fillText(bpmCorrente + ' BPM', 10, 30);
+    const link = document.createElement('a');
+    link.download = 'battito_' + Date.now() + '.png';
+    link.href = temp.toDataURL('image/png');
+    link.click();
+  }
+
+  /* --- UI helpers --- */
+  function mostraErrore(msg) {
+    erroreEl.textContent = msg;
+    erroreEl.style.display = 'block';
+  }
+  function nascondiErrore() {
+    erroreEl.style.display = 'none';
+  }
+
+  /* --- Eventi --- */
+  btnAvvia.addEventListener('click', () => {
+    if (flusso && flusso.active) { ferma(); return; }
+    avviaWebcam();
+  });
+  btnSalva.addEventListener('click', salvaScreenshot);
+})();
+</script>
+</body>
+</html>
