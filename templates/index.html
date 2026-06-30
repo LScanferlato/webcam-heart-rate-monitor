@@ -176,6 +176,12 @@
   .indicatore.in-attesa { background: #aaaa33; }
   .indicatore.nessun-volto { background: #aa3333; box-shadow: 0 0 5px #aa333388; }
   .stato-testo { font-size: 0.68rem; color: #6c7086; }
+  .stato-info {
+    font-size: 0.6rem;
+    color: #585b70;
+    padding: 0.15rem 0.6rem;
+    line-height: 1.3;
+  }
 
   /* --- Pulsanti --- */
   .pulsanti { display: flex; gap: 0.4rem; }
@@ -233,6 +239,7 @@
       <span class="indicatore" id="indicatore"></span>
       <span class="stato-testo" id="statoTesto">In attesa...</span>
     </div>
+    <div class="stato-info" id="statoInfo"></div>
 
     <div class="pulsanti">
       <button id="btnAvvia" class="avvia">Avvia webcam</button>
@@ -289,6 +296,7 @@
   const luceLum   = document.getElementById('luceLum');
   const barraLum  = document.getElementById('barraLum');
   const luceFreq  = document.getElementById('luceFreq');
+  const statoInfo = document.getElementById('statoInfo');
 
   const LARGHEZZA = 320;
   const ALTEZZA   = 240;
@@ -422,7 +430,9 @@
       statoTesto.textContent = 'Nessun volto rilevato';
       bpmEl.textContent = '---';
       bpmEl.className = 'ecg-bpm nessun-volto';
+      statoInfo.textContent = '';
     } else if (pronto && bpm > 0) {
+      statoInfo.textContent = '';
       indicatore.className = 'indicatore pronto';
       statoTesto.textContent = 'Monitoraggio attivo';
       if (sopra150) {
@@ -438,6 +448,7 @@
       statoTesto.textContent = 'Calcolo in corso...';
       bpmEl.textContent = '...';
       bpmEl.className = 'ecg-bpm in-attesa';
+      statoInfo.textContent = 'Primo BPM dopo ~200 frame (13.3s), stabile dopo ~350 frame (23.3s)';
     }
   }
 
@@ -487,6 +498,7 @@
     barraLum.style.width = '0%';
     luceFreq.textContent = '---';
     luceFreq.className = 'luce-valore';
+    statoInfo.textContent = '';
     fetch('/api/reset', { method: 'POST' }).catch(() => {});
   }
 
