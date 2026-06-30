@@ -5,8 +5,8 @@ e invia i fotogrammi al backend per l'elaborazione.
 """
 
 import base64
-import io
 import logging
+import threading
 
 import cv2
 import numpy as np
@@ -18,9 +18,20 @@ from signal_processor import (
     applica_filtro_passa_banda,
     calcola_bpm,
     calcola_maschera_frequenze,
+    calcola_luminosita,
+    calcola_temperatura_colore,
+    classifica_illuminazione,
     costruisci_piramide_gaussiana,
+    rileva_frequenza_illuminazione,
     ricostruisci_fotogramma,
 )
+
+_cascade_volto = cv2.CascadeClassifier(
+    cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+)
+
+STORIA_LUMINOSITA_MAX = 150
+STORIA_PPG_MAX = 300
 
 
 class ElaboratoreBattito:
@@ -31,6 +42,11 @@ class ElaboratoreBattito:
     """
 
     def __init__(self):
+        self._lock = threading.Lock()
+        self._resetta_stato()
+
+    def _resetta_stato(self):
+        """Reinizializza tutti i buffer e contatori."""
         primo_fotogramma = np.zeros(
             (config.AREA_ALTEZZA, config.AREA_LARGHEZZA, config.CANALI_VIDEO)
         )
@@ -58,13 +74,62 @@ class ElaboratoreBattito:
         self.indice_bpm = 0
         self.conteggio_calcoli = 0
         self.bpm_pronto = False
+        self.valori_bpm_validi = 0
+        self.storia_luminosita = []
+        self.storia_ppg = []
+
+    def resetta(self):
+        """Reset completo dello stato (thread-safe)."""
+        with self._lock:
+            self._resetta_stato()
 
     def elabora_fotogramma(self, frame):
         """
-        Elabora un singolo fotogramma: estrae ROI, aggiorna buffer,
-        applica FFT, filtraggio, amplificazione e calcolo BPM.
-        Restituisce BPM, ROI elaborata e flag di prontezza.
+        Elabora un singolo fotogramma: rileva volto, estrae ROI, aggiorna buffer,
+        applica FFT, filtraggio, amplificazione, calcolo BPM e analisi illuminazione.
+        Restituisce (bpm, roi, pronto, viso_rilevato, dati_illuminazione).
         """
+        with self._lock:
+            return self._elabora_fotogramma_interno(frame)
+
+    def _rileva_volto(self, frame):
+        """Rileva la presenza di un volto nel frame. Restituisce True se trovato."""
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        volti = _cascade_volto.detectMultiScale(
+            gray, scaleFactor=1.1, minNeighbors=5, minSize=(50, 50)
+        )
+        return len(volti) > 0
+
+    def _analizza_illuminazione(self, frame):
+        """Analizza illuminazione: temperatura colore, luminosita, frequenza flicker."""
+        temperatura = calcola_temperatura_colore(frame)
+        luminosita = calcola_luminosita(frame)
+        self.storia_luminosita.append(luminosita)
+        if len(self.storia_luminosita) > STORIA_LUMINOSITA_MAX:
+            self.storia_luminosita = self.storia_luminosita[-STORIA_LUMINOSITA_MAX:]
+
+        frequenza, amp_flicker, has_flicker = rileva_frequenza_illuminazione(
+            self.storia_luminosita, config.FOTOGRAMMI_AL_SECONDO
+        )
+        tipo = classifica_illuminazione(temperatura, frequenza, has_flicker)
+
+        return {
+            "temperatura_cct": int(temperatura),
+            "luminosita": round(luminosita, 1),
+            "frequenza_hz": frequenza,
+            "frequenza_rilevata": has_flicker,
+            "tipo": tipo,
+        }
+
+    def _elabora_fotogramma_interno(self, frame):
+        viso_rilevato = self._rileva_volto(frame)
+
+        dati_luce = self._analizza_illuminazione(frame)
+
+        if not viso_rilevato:
+            self._resetta_stato()
+            return 0, frame, False, False, dati_luce, []
+
         area_rilevamento = self._estrae_centro(frame)
 
         self.buffer_video[self.indice_buffer] = costruisci_piramide_gaussiana(
@@ -77,17 +142,26 @@ class ElaboratoreBattito:
         bpm = None
         if self.indice_buffer % config.INTERVALLO_CALCOLO_BPM == 0:
             for idx in range(config.DIMENSIONE_BUFFER):
-                self.media_fft[idx] = np.real(fft[idx]).mean()
+                self.media_fft[idx] = np.abs(fft_filtrata[idx]).mean()
             bpm = calcola_bpm(self.media_fft, self.frequenze)
             self.buffer_bpm[self.indice_bpm] = bpm
             self.indice_bpm = (self.indice_bpm + 1) % config.DIMENSIONE_BUFFER_BPM
             self.conteggio_calcoli += 1
+            self.valori_bpm_validi = min(
+                self.valori_bpm_validi + 1, config.DIMENSIONE_BUFFER_BPM
+            )
             if self.conteggio_calcoli > config.DIMENSIONE_BUFFER_BPM:
                 self.bpm_pronto = True
 
         segnale_amplificato = amplifica_segnale(
             fft_filtrata, config.ALFA_AMPLIFICAZIONE
         )
+
+        valore_ppg = float(np.mean(segnale_amplificato[self.indice_buffer]))
+        self.storia_ppg.append(valore_ppg)
+        if len(self.storia_ppg) > STORIA_PPG_MAX:
+            self.storia_ppg = self.storia_ppg[-STORIA_PPG_MAX:]
+
         fotogramma_amplificato = ricostruisci_fotogramma(
             segnale_amplificato,
             self.indice_buffer,
@@ -101,14 +175,20 @@ class ElaboratoreBattito:
 
         self.indice_buffer = (self.indice_buffer + 1) % config.DIMENSIONE_BUFFER
 
-        bpm_medio = self.buffer_bpm.mean() if self.bpm_pronto else 0
-        return bpm_medio, fotogramma_uscita, self.bpm_pronto
+        bpm_medio = (
+            self.buffer_bpm[: self.valori_bpm_validi].mean()
+            if self.valori_bpm_validi > 0
+            else 0
+        )
+        return bpm_medio, fotogramma_uscita, self.bpm_pronto, True, dati_luce, self.storia_ppg[-60:]
 
     def _estrae_centro(self, frame):
         """Estrae la porzione centrale del frame, ridimensionandola se necessario."""
         altezza, larghezza = frame.shape[:2]
         if altezza != config.RISOLUZIONE_ALTEZZA or larghezza != config.RISOLUZIONE_LARGHEZZA:
-            frame = cv2.resize(frame, (config.RISOLUZIONE_LARGHEZZA, config.RISOLUZIONE_ALTEZZA))
+            frame = cv2.resize(
+                frame, (config.RISOLUZIONE_LARGHEZZA, config.RISOLUZIONE_ALTEZZA)
+            )
             altezza, larghezza = config.RISOLUZIONE_ALTEZZA, config.RISOLUZIONE_LARGHEZZA
         inizio_y = altezza // 2 - config.AREA_ALTEZZA // 2
         fine_y = inizio_y + config.AREA_ALTEZZA
@@ -132,7 +212,7 @@ def index():
 def elabora():
     """
     Endpoint REST: riceve un fotogramma JPEG in base64 e restituisce
-    la ROI elaborata (sempre in base64) e il BPM corrente.
+    la ROI elaborata, il BPM corrente, il flag volto e dati illuminazione.
     """
     dati = request.get_json()
     if not dati or "immagine" not in dati:
@@ -147,15 +227,36 @@ def elabora():
     except Exception as e:
         return jsonify({"errore": f"Decodifica fallita: {e}"}), 400
 
-    bpm, roi_elaborata, pronto = elaboratore.elabora_fotogramma(frame)
+    bpm, roi_elaborata, pronto, viso_rilevato, dati_luce, segnale_ppg = (
+        elaboratore.elabora_fotogramma(frame)
+    )
 
-    _, buffer_jpeg = cv2.imencode(".jpg", roi_elaborata, [cv2.IMWRITE_JPEG_QUALITY, 85])
-    roi_base64 = base64.b64encode(buffer_jpeg).decode("utf-8")
+    if viso_rilevato:
+        _, buffer_jpeg = cv2.imencode(
+            ".jpg", roi_elaborata, [cv2.IMWRITE_JPEG_QUALITY, 85]
+        )
+        roi_base64 = base64.b64encode(buffer_jpeg).decode("utf-8")
+    else:
+        roi_base64 = None
 
-    return jsonify({"bpm": round(bpm, 1), "roi": roi_base64, "pronto": pronto})
+    return jsonify({
+        "bpm": round(bpm, 1),
+        "roi": roi_base64,
+        "pronto": pronto,
+        "viso_rilevato": viso_rilevato,
+        "illuminazione": dati_luce,
+        "ppg": [round(v, 2) for v in segnale_ppg],
+    })
+
+
+@app.route("/api/reset", methods=["POST"])
+def resetta():
+    """Reset completo dello stato dell'elaboratore."""
+    elaboratore.resetta()
+    return jsonify({"ok": True})
 
 
 if __name__ == "__main__":
-    print(f"Server avviato su http://127.0.0.1:5000")
+    print("Server avviato su http://127.0.0.1:5000")
     print("Apri il browser e connettiti all'indirizzo sopra.")
     app.run(host="127.0.0.1", port=5000, debug=False)

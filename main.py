@@ -22,9 +22,13 @@ from signal_processor import (
 
 def inizializza_webcam(percorso_video=None):
     """Inizializza la webcam o apre un file video."""
-    sorgente = cv2.VideoCapture(0 if percorso_video is None else percorso_video)
+    percorso = 0 if percorso_video is None else percorso_video
+    sorgente = cv2.VideoCapture(percorso)
     if not sorgente.isOpened():
-        print("ERRORE: Impossibile aprire la webcam o il file video.")
+        if percorso_video is not None:
+            print(f"ERRORE: Impossibile aprire il file video '{percorso_video}'.")
+        else:
+            print("ERRORE: Impossibile accedere alla webcam. Verifica che sia connessa.")
         sys.exit(1)
     sorgente.set(3, config.RISOLUZIONE_LARGHEZZA)
     sorgente.set(4, config.RISOLUZIONE_ALTEZZA)
@@ -105,7 +109,6 @@ def esegui_monitoraggio(percorso_video=None):
         scrittore_originale = inizializza_scrittore_video(config.NOME_VIDEO_ORIGINALE)
 
     scrittore_elaborato = inizializza_scrittore_video(config.NOME_VIDEO_ELABORATO)
-
     primo_fotogramma = np.zeros(
         (config.AREA_ALTEZZA, config.AREA_LARGHEZZA, config.CANALI_VIDEO)
     )
@@ -134,72 +137,79 @@ def esegui_monitoraggio(percorso_video=None):
     indice_bpm = 0
     conteggio_calcoli_bpm = 0
     bpm_pronto = False
+    valori_bpm_validi = 0
 
-    while True:
-        fotogramma_disponibile, fotogramma = webcam.read()
-        if not fotogramma_disponibile:
-            break
-
-        fotogramma_originale = fotogramma.copy()
-        if scrittore_originale:
-            scrittore_originale.write(fotogramma_originale)
-
-        area_rilevamento = calcola_centro_rilevamento(
-            fotogramma, config.AREA_LARGHEZZA, config.AREA_ALTEZZA
-        )
-
-        buffer_video[indice_buffer] = costruisci_piramide_gaussiana(
-            area_rilevamento, config.LIVELLI_PIRAMIDE + 1
-        )[config.LIVELLI_PIRAMIDE]
-
-        fft = np.fft.fft(buffer_video, axis=0)
-        fft_filtrata = applica_filtro_passa_banda(fft, maschera)
-
-        if indice_buffer % config.INTERVALLO_CALCOLO_BPM == 0:
-            for indice in range(config.DIMENSIONE_BUFFER):
-                media_fft[indice] = np.real(fft[indice]).mean()
-            bpm = calcola_bpm(media_fft, frequenze)
-            buffer_bpm[indice_bpm] = bpm
-            indice_bpm = (indice_bpm + 1) % config.DIMENSIONE_BUFFER_BPM
-            conteggio_calcoli_bpm += 1
-            if conteggio_calcoli_bpm > config.DIMENSIONE_BUFFER_BPM:
-                bpm_pronto = True
-
-        segnale_amplificato = amplifica_segnale(fft_filtrata, config.ALFA_AMPLIFICAZIONE)
-        fotogramma_amplificato = ricostruisci_fotogramma(
-            segnale_amplificato,
-            indice_buffer,
-            config.LIVELLI_PIRAMIDE,
-            config.AREA_ALTEZZA,
-            config.AREA_LARGHEZZA,
-        )
-
-        fotogramma_uscita = area_rilevamento + fotogramma_amplificato
-        fotogramma_uscita = cv2.convertScaleAbs(fotogramma_uscita)
-
-        indice_buffer = (indice_buffer + 1) % config.DIMENSIONE_BUFFER
-
-        inizio_y = config.AREA_ALTEZZA // 2
-        fine_y = config.RISOLUZIONE_ALTEZZA - config.AREA_ALTEZZA // 2
-        inizio_x = config.AREA_LARGHEZZA // 2
-        fine_x = config.RISOLUZIONE_LARGHEZZA - config.AREA_LARGHEZZA // 2
-
-        fotogramma[inizio_y:fine_y, inizio_x:fine_x] = fotogramma_uscita
-        bpm_medio = buffer_bpm.mean() if bpm_pronto else 0
-        disegna_interfaccia(fotogramma, bpm_pronto, bpm_medio, conteggio_calcoli_bpm)
-
-        scrittore_elaborato.write(fotogramma)
-
-        if not sorgente_video:
-            cv2.imshow("Monitoraggio Battito Cardiaco", fotogramma)
-            if cv2.waitKey(1) & 0xFF == ord("q"):
+    try:
+        while True:
+            fotogramma_disponibile, fotogramma = webcam.read()
+            if not fotogramma_disponibile or fotogramma is None:
                 break
 
-    webcam.release()
-    cv2.destroyAllWindows()
-    scrittore_elaborato.release()
-    if scrittore_originale:
-        scrittore_originale.release()
+            if fotogramma.shape[0] != config.RISOLUZIONE_ALTEZZA or \
+                    fotogramma.shape[1] != config.RISOLUZIONE_LARGHEZZA:
+                fotogramma = cv2.resize(fotogramma, (config.RISOLUZIONE_LARGHEZZA, config.RISOLUZIONE_ALTEZZA))
+
+            fotogramma_originale = fotogramma.copy()
+            if scrittore_originale:
+                scrittore_originale.write(fotogramma_originale)
+
+            area_rilevamento = calcola_centro_rilevamento(
+                fotogramma, config.AREA_LARGHEZZA, config.AREA_ALTEZZA
+            )
+
+            buffer_video[indice_buffer] = costruisci_piramide_gaussiana(
+                area_rilevamento, config.LIVELLI_PIRAMIDE + 1
+            )[config.LIVELLI_PIRAMIDE]
+
+            fft = np.fft.fft(buffer_video, axis=0)
+            fft_filtrata = applica_filtro_passa_banda(fft, maschera)
+
+            if indice_buffer % config.INTERVALLO_CALCOLO_BPM == 0:
+                for indice in range(config.DIMENSIONE_BUFFER):
+                    media_fft[indice] = np.abs(fft_filtrata[indice]).mean()
+                bpm = calcola_bpm(media_fft, frequenze)
+                buffer_bpm[indice_bpm] = bpm
+                indice_bpm = (indice_bpm + 1) % config.DIMENSIONE_BUFFER_BPM
+                conteggio_calcoli_bpm += 1
+                valori_bpm_validi = min(valori_bpm_validi + 1, config.DIMENSIONE_BUFFER_BPM)
+                if conteggio_calcoli_bpm > config.DIMENSIONE_BUFFER_BPM:
+                    bpm_pronto = True
+
+            segnale_amplificato = amplifica_segnale(fft_filtrata, config.ALFA_AMPLIFICAZIONE)
+            fotogramma_amplificato = ricostruisci_fotogramma(
+                segnale_amplificato,
+                indice_buffer,
+                config.LIVELLI_PIRAMIDE,
+                config.AREA_ALTEZZA,
+                config.AREA_LARGHEZZA,
+            )
+
+            fotogramma_uscita = area_rilevamento + fotogramma_amplificato
+            fotogramma_uscita = cv2.convertScaleAbs(fotogramma_uscita)
+
+            indice_buffer = (indice_buffer + 1) % config.DIMENSIONE_BUFFER
+
+            inizio_y = config.AREA_ALTEZZA // 2
+            fine_y = config.RISOLUZIONE_ALTEZZA - config.AREA_ALTEZZA // 2
+            inizio_x = config.AREA_LARGHEZZA // 2
+            fine_x = config.RISOLUZIONE_LARGHEZZA - config.AREA_LARGHEZZA // 2
+
+            fotogramma[inizio_y:fine_y, inizio_x:fine_x] = fotogramma_uscita
+            bpm_medio = buffer_bpm[:valori_bpm_validi].mean() if valori_bpm_validi > 0 else 0
+            disegna_interfaccia(fotogramma, bpm_pronto, bpm_medio, conteggio_calcoli_bpm)
+
+            scrittore_elaborato.write(fotogramma)
+
+            if not sorgente_video:
+                cv2.imshow("Monitoraggio Battito Cardiaco", fotogramma)
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
+    finally:
+        webcam.release()
+        cv2.destroyAllWindows()
+        scrittore_elaborato.release()
+        if scrittore_originale:
+            scrittore_originale.release()
 
 
 def main():
