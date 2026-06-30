@@ -16,6 +16,7 @@ import config
 from signal_processor import (
     amplifica_segnale,
     applica_filtro_passa_banda,
+    applica_hann,
     calcola_bpm,
     calcola_maschera_frequenze,
     calcola_luminosita,
@@ -81,6 +82,7 @@ class ElaboratoreBattito:
     def resetta(self):
         """Reset completo dello stato (thread-safe)."""
         with self._lock:
+            self._conteggio_senza_volto = 0
             self._resetta_stato()
 
     def elabora_fotogramma(self, frame):
@@ -93,12 +95,25 @@ class ElaboratoreBattito:
             return self._elabora_fotogramma_interno(frame)
 
     def _rileva_volto(self, frame):
-        """Rileva la presenza di un volto nel frame. Restituisce True se trovato."""
+        """
+        Rileva la presenza di un volto nel frame.
+        Usa parametri permissivi e fallback: se non trova volto per
+        parecchi frame consecutivi, processa comunque per evitare blocchi.
+        """
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         volti = _cascade_volto.detectMultiScale(
-            gray, scaleFactor=1.1, minNeighbors=5, minSize=(50, 50)
+            gray, scaleFactor=1.05, minNeighbors=3, minSize=(30, 30)
         )
-        return len(volti) > 0
+        trovato = len(volti) > 0
+
+        if trovato:
+            self._conteggio_senza_volto = 0
+            return True
+
+        self._conteggio_senza_volto = getattr(self, '_conteggio_senza_volto', 0) + 1
+        if self._conteggio_senza_volto >= 30:
+            return True
+        return False
 
     def _analizza_illuminazione(self, frame):
         """Analizza illuminazione: temperatura colore, luminosita, frequenza flicker."""
@@ -136,7 +151,8 @@ class ElaboratoreBattito:
             area_rilevamento, config.LIVELLI_PIRAMIDE + 1
         )[config.LIVELLI_PIRAMIDE]
 
-        fft = np.fft.fft(self.buffer_video, axis=0)
+        buffer_windowed = applica_hann(self.buffer_video)
+        fft = np.fft.fft(buffer_windowed, axis=0)
         fft_filtrata = applica_filtro_passa_banda(fft, self.maschera)
 
         bpm = None

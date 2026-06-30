@@ -8,6 +8,34 @@ import numpy as np
 import cv2
 
 
+# Finestra di Hann precalcolata per ridurre la dispersione spettrale
+_HANN_WINDOW = None
+
+
+def _ottieni_hann(dimensione):
+    global _HANN_WINDOW
+    if _HANN_WINDOW is None or len(_HANN_WINDOW) != dimensione:
+        _HANN_WINDOW = np.hanning(dimensione)
+    return _HANN_WINDOW
+
+
+def applica_hann(buffer):
+    """Applica la finestra di Hann lungo l'asse temporale (axis=0)."""
+    hann = _ottieni_hann(buffer.shape[0])
+    forma = [buffer.shape[0]] + [1] * (buffer.ndim - 1)
+    return buffer * hann.reshape(forma)
+
+
+def rimuovi_hann(segnale, dimensione):
+    """Rimuove l'effetto della finestra di Hann (con protezione divisione per zero)."""
+    hann = _ottieni_hann(dimensione)
+    forma = [dimensione] + [1] * (segnale.ndim - 1)
+    hann_reshaped = hann.reshape(forma)
+    soglia = 0.1
+    hann_safe = np.where(hann_reshaped < soglia, soglia, hann_reshaped)
+    return segnale / hann_safe
+
+
 def costruisci_piramide_gaussiana(frame, livelli):
     """
     Costruisce una piramide gaussiana con il numero di livelli specificato.
@@ -50,21 +78,39 @@ def applica_filtro_passa_banda(fft, maschera):
 
 def calcola_bpm(fft_media, frequenze):
     """
-    Calcola il BPM dalla FFT media trovando il picco di frequenza dominante.
-    Ignora il componente DC (indice 0) per evitare che domini il picco.
+    Calcola il BPM dalla FFT media trovando il picco di frequenza dominante
+    con interpolazione parabolica per accuratezza sub-bin.
+    Ignora il componente DC (indice 0).
     """
     copia = fft_media.copy()
     copia[0] = 0
-    indice_picco = np.argmax(copia)
-    frequenza_dominante = frequenze[indice_picco]
+    k = int(np.argmax(copia))
+
+    # Interpolazione parabolica sub-bin
+    if 1 <= k <= len(copia) - 2:
+        y0, y1, y2 = float(copia[k-1]), float(copia[k]), float(copia[k+1])
+        denom = 2.0 * y1 - y0 - y2
+        if denom != 0 and y1 > max(y0, y2):
+            delta = 0.5 * (y2 - y0) / denom
+            if abs(delta) <= 1.0:
+                k_interp = k + delta
+                f_low = frequenze[int(np.floor(k_interp))]
+                f_high = frequenze[int(np.ceil(k_interp))]
+                frac = k_interp - np.floor(k_interp)
+                frequenza_dominante = f_low + frac * (f_high - f_low)
+                return 60.0 * frequenza_dominante
+
+    frequenza_dominante = frequenze[k]
     return 60.0 * frequenza_dominante
 
 
 def amplifica_segnale(fft_filtrata, alfa):
     """
     Amplifica il segnale filtrato e lo riporta nel dominio spaziale.
+    Rimuove la finestra di Hann applicata prima della FFT.
     """
     segnale_amplificato = np.real(np.fft.ifft(fft_filtrata, axis=0))
+    segnale_amplificato = rimuovi_hann(segnale_amplificato, segnale_amplificato.shape[0])
     return segnale_amplificato * alfa
 
 

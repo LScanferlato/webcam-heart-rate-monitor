@@ -13,24 +13,24 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    padding: 1rem;
     min-height: 100vh;
-    padding: 1.5rem 1rem;
   }
   h1 {
-    font-size: 1.4rem;
+    font-size: 1.2rem;
     font-weight: 300;
     letter-spacing: 0.05em;
-    margin-bottom: 0.2rem;
     color: #89b4fa;
+    margin-bottom: 0.1rem;
   }
   .sottotitolo {
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     color: #6c7086;
-    margin-bottom: 1.25rem;
+    margin-bottom: 0.6rem;
   }
   .layout {
     display: flex;
-    gap: 1.25rem;
+    gap: 0.8rem;
     width: 960px;
     max-width: 100%;
     align-items: flex-start;
@@ -38,24 +38,24 @@
   .colonna-sinistra {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.5rem;
     flex: 1;
     min-width: 0;
   }
   .colonna-destra {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    width: 260px;
+    gap: 0.5rem;
+    width: 220px;
     flex-shrink: 0;
   }
 
-  /* --- Video --- */
+  /* --- Video (dimensione fissa) --- */
   .contenitore-video {
     position: relative;
-    border-radius: 8px;
+    border-radius: 6px;
     overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
     background: #111;
     width: 100%;
   }
@@ -70,79 +70,70 @@
     top: 0; left: 0;
   }
 
-  /* --- ECG Monitor --- */
+  /* --- ECG (altezza fissa) --- */
   .ecg-monitor {
     background: #0a0a0a;
     border: 1px solid #1a3a1a;
-    border-radius: 8px;
+    border-radius: 6px;
     overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0,255,0,0.05), inset 0 0 30px rgba(0,0,0,0.5);
-    position: relative;
+    box-shadow: 0 4px 16px rgba(0,255,0,0.05), inset 0 0 20px rgba(0,0,0,0.5);
   }
   .ecg-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.4rem 0.75rem;
+    padding: 0.25rem 0.6rem;
     background: #0d1a0d;
     border-bottom: 1px solid #1a3a1a;
   }
   .ecg-label {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: #2a7a2a;
     text-transform: uppercase;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.12em;
     font-weight: 600;
   }
   .ecg-bpm {
-    font-size: 1.4rem;
+    font-size: 1.2rem;
     font-weight: 700;
     color: #33ff33;
     font-family: 'Courier New', monospace;
     text-shadow: 0 0 10px #33ff3366;
   }
-  .ecg-bpm.in-attesa {
-    color: #aaaa33;
-    text-shadow: 0 0 10px #aaaa3366;
-  }
-  .ecg-bpm.nessun-volto {
-    color: #aa3333;
-    text-shadow: none;
-  }
+  .ecg-bpm.in-attesa { color: #aaaa33; text-shadow: 0 0 10px #aaaa3366; }
+  .ecg-bpm.nessun-volto { color: #aa3333; text-shadow: none; }
   #ecgCanvas {
     display: block;
     width: 100%;
+    height: 160px;
     background: #0a0a0a;
   }
 
   /* --- Illuminazione --- */
   .pannello-illuminazione {
     background: #181c25;
-    border-radius: 8px;
-    padding: 0.65rem 0.85rem;
+    border-radius: 6px;
+    padding: 0.5rem 0.65rem;
     border: 1px solid #252a35;
   }
   .pannello-titolo {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: #6c7086;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.35rem;
   }
   .luce-riga {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.25rem 0;
+    padding: 0.18rem 0;
     border-bottom: 1px solid #1e2230;
   }
   .luce-riga:last-child { border-bottom: none; }
-  .luce-etichetta {
-    font-size: 0.75rem;
-    color: #888da0;
-  }
+  .luce-etichetta { font-size: 0.68rem; color: #888da0; }
   .luce-valore {
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     font-weight: 600;
     font-family: 'Courier New', monospace;
   }
@@ -152,10 +143,10 @@
   .luce-valore.neutro { color: #a6e3a1; }
   .barra-luminosita {
     width: 100%;
-    height: 4px;
+    height: 3px;
     background: #1e2230;
     border-radius: 2px;
-    margin-top: 0.35rem;
+    margin: 0.2rem 0;
     overflow: hidden;
   }
   .barra-luminosita-fill {
@@ -169,36 +160,30 @@
   .barra-stato {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.5rem 0.85rem;
+    gap: 0.5rem;
+    padding: 0.35rem 0.6rem;
     background: #181c25;
-    border-radius: 8px;
+    border-radius: 6px;
     border: 1px solid #252a35;
   }
   .indicatore {
-    width: 8px; height: 8px;
+    width: 7px; height: 7px;
     border-radius: 50%;
     background: #585b70;
     transition: background 0.3s;
   }
-  .indicatore.pronto { background: #33ff33; box-shadow: 0 0 8px #33ff3388; }
+  .indicatore.pronto { background: #33ff33; box-shadow: 0 0 6px #33ff3388; }
   .indicatore.in-attesa { background: #aaaa33; }
-  .indicatore.nessun-volto { background: #aa3333; box-shadow: 0 0 6px #aa333388; }
-  .stato-testo {
-    font-size: 0.75rem;
-    color: #6c7086;
-  }
+  .indicatore.nessun-volto { background: #aa3333; box-shadow: 0 0 5px #aa333388; }
+  .stato-testo { font-size: 0.68rem; color: #6c7086; }
 
   /* --- Pulsanti --- */
-  .pulsanti {
-    display: flex;
-    gap: 0.5rem;
-  }
+  .pulsanti { display: flex; gap: 0.4rem; }
   button {
-    padding: 0.45rem 1rem;
+    padding: 0.35rem 0.8rem;
     border: none;
-    border-radius: 6px;
-    font-size: 0.8rem;
+    border-radius: 5px;
+    font-size: 0.72rem;
     cursor: pointer;
     background: #313244;
     color: #cdd6f4;
@@ -207,21 +192,19 @@
   button:hover { background: #45475a; }
   button.avvia { background: #33ff33; color: #0a0a0a; font-weight: 600; }
   button.avvia:hover { background: #44ff44; }
-  button.reset { background: #45475a; }
 
-  /* --- Errore --- */
   .errore-box {
-    padding: 0.6rem 1rem;
+    padding: 0.4rem 0.7rem;
     background: #2a1b1b;
-    border-radius: 6px;
+    border-radius: 5px;
     color: #f38ba8;
-    font-size: 0.8rem;
+    font-size: 0.72rem;
     display: none;
     text-align: center;
   }
 
   @media (max-width: 800px) {
-    .layout { flex-direction: column; }
+    .layout { flex-direction: column; align-items: stretch; }
     .colonna-destra { width: 100%; }
   }
 </style>
@@ -253,7 +236,7 @@
 
     <div class="pulsanti">
       <button id="btnAvvia" class="avvia">Avvia webcam</button>
-      <button id="btnReset" class="reset">Reset</button>
+      <button id="btnReset">Reset</button>
       <button id="btnSalva">Salva screenshot</button>
     </div>
 
@@ -279,7 +262,7 @@
         <div class="barra-luminosita-fill" id="barraLum" style="width:0%"></div>
       </div>
       <div class="luce-riga">
-        <span class="luce-etichetta">Frequenza flicker</span>
+        <span class="luce-etichetta">Flicker</span>
         <span class="luce-valore" id="luceFreq">---</span>
       </div>
     </div>
@@ -316,196 +299,148 @@
   canvas.width  = LARGHEZZA;
   canvas.height = ALTEZZA;
 
-  /* --- ECG --- */
-  const ECG_LARGHEZZA_PX = 600;
-  const ECG_ALTEZZA_PX = 120;
-  const ECG_PIXEL_PER_SEC = 60;
-  const ECG_SPETTATURA = 2;
+  /* --- ECG (160px fissi) --- */
   const dpr = window.devicePixelRatio || 1;
-  ecgCanvas.width  = ECG_LARGHEZZA_PX * dpr;
-  ecgCanvas.height = ECG_ALTEZZA_PX * dpr;
-  ecgCanvas.style.width  = ECG_LARGHEZZA_PX + 'px';
-  ecgCanvas.style.height = ECG_ALTEZZA_PX + 'px';
-  ecgCtx.scale(dpr, dpr);
-
-  let ecgBuffer = new Float32Array(ECG_LARGHEZZA_PX).fill(0);
+  const ECG_H = 160;
+  let ecgW = 600;
+  let ecgBuffer = null;
   let ecgIndice = 0;
   let ecgCursorX = 0;
-  let ecgLastTime = 0;
+
+  function ecgInizializza() {
+    const rect = ecgCanvas.getBoundingClientRect();
+    ecgW = Math.max(Math.round(rect.width), 100);
+    ecgCanvas.width  = ecgW * dpr;
+    ecgCanvas.height = ECG_H * dpr;
+    ecgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ecgBuffer = new Float32Array(ecgW).fill(0);
+    ecgIndice = 0;
+    ecgCursorX = 0;
+  }
+
+  function ecgRidimensiona() {
+    const vecchio = ecgBuffer;
+    const vecchioW = vecchio ? vecchio.length : 0;
+    ecgInizializza();
+    if (vecchio && vecchioW > 0) {
+      const copia = Math.min(vecchioW, ecgW);
+      for (let i = 0; i < copia; i++)
+        ecgBuffer[ecgW - copia + i] = vecchio[(vecchioW - copia + i) % vecchioW];
+    }
+    ecgRidisegna();
+  }
 
   function ecgDisegnaGriglia() {
     ecgCtx.strokeStyle = '#0f1f0f';
     ecgCtx.lineWidth = 0.5;
-    for (let x = 0; x < ECG_LARGHEZZA_PX; x += 20) {
-      ecgCtx.beginPath();
-      ecgCtx.moveTo(x, 0);
-      ecgCtx.lineTo(x, ECG_ALTEZZA_PX);
-      ecgCtx.stroke();
-    }
-    for (let y = 0; y < ECG_ALTEZZA_PX; y += 20) {
-      ecgCtx.beginPath();
-      ecgCtx.moveTo(0, y);
-      ecgCtx.lineTo(ECG_LARGHEZZA_PX, y);
-      ecgCtx.stroke();
-    }
+    for (let x = 0; x < ecgW; x += 20) { ecgCtx.beginPath(); ecgCtx.moveTo(x, 0); ecgCtx.lineTo(x, ECG_H); ecgCtx.stroke(); }
+    for (let y = 0; y < ECG_H; y += 20) { ecgCtx.beginPath(); ecgCtx.moveTo(0, y); ecgCtx.lineTo(ecgW, y); ecgCtx.stroke(); }
     ecgCtx.strokeStyle = '#1a3a1a';
     ecgCtx.lineWidth = 0.8;
-    for (let x = 0; x < ECG_LARGHEZZA_PX; x += 100) {
-      ecgCtx.beginPath();
-      ecgCtx.moveTo(x, 0);
-      ecgCtx.lineTo(x, ECG_ALTEZZA_PX);
-      ecgCtx.stroke();
-    }
-    for (let y = 0; y < ECG_ALTEZZA_PX; y += 100) {
-      ecgCtx.beginPath();
-      ecgCtx.moveTo(0, y);
-      ecgCtx.lineTo(ECG_LARGHEZZA_PX, y);
-      ecgCtx.stroke();
-    }
+    for (let x = 0; x < ecgW; x += 100) { ecgCtx.beginPath(); ecgCtx.moveTo(x, 0); ecgCtx.lineTo(x, ECG_H); ecgCtx.stroke(); }
+    for (let y = 0; y < ECG_H; y += 100) { ecgCtx.beginPath(); ecgCtx.moveTo(0, y); ecgCtx.lineTo(ecgW, y); ecgCtx.stroke(); }
   }
 
   function ecgAggiungiValori(valori) {
-    if (!valori || valori.length === 0) return;
+    if (!valori || valori.length === 0 || !ecgBuffer) return;
     for (let i = 0; i < valori.length; i++) {
       ecgBuffer[ecgIndice] = valori[i];
-      ecgIndice = (ecgIndice + 1) % ECG_LARGHEZZA_PX;
+      ecgIndice = (ecgIndice + 1) % ecgW;
       ecgCursorX = ecgIndice;
     }
   }
 
   function ecgRidisegna() {
-    ecgCtx.clearRect(0, 0, ECG_LARGHEZZA_PX, ECG_ALTEZZA_PX);
+    if (!ecgBuffer) return;
+    ecgCtx.clearRect(0, 0, ecgW, ECG_H);
     ecgCtx.fillStyle = '#0a0a0a';
-    ecgCtx.fillRect(0, 0, ECG_LARGHEZZA_PX, ECG_ALTEZZA_PX);
+    ecgCtx.fillRect(0, 0, ecgW, ECG_H);
     ecgDisegnaGriglia();
 
-    const centroY = ECG_ALTEZZA_PX / 2;
-    const scala = 0.15;
+    const centroY = ECG_H / 2;
+    const scala = ECG_H * 0.003;
 
-    /* Sfumatura trailing (effetto fosforescenza) */
     ecgCtx.save();
-    ecgCtx.globalAlpha = 0.15;
+    ecgCtx.globalAlpha = 0.12;
     ecgCtx.strokeStyle = '#003300';
     ecgCtx.lineWidth = 4;
     ecgCtx.beginPath();
     let primo = true;
-    for (let i = 0; i < ECG_LARGHEZZA_PX; i++) {
-      const idx = (ecgCursorX + 1 + i) % ECG_LARGHEZZA_PX;
-      const x = i;
+    for (let i = 0; i < ecgW; i++) {
+      const idx = (ecgCursorX + 1 + i) % ecgW;
       const y = centroY - ecgBuffer[idx] * scala;
-      if (primo) { ecgCtx.moveTo(x, y); primo = false; }
-      else ecgCtx.lineTo(x, y);
+      if (primo) { ecgCtx.moveTo(i, y); primo = false; } else ecgCtx.lineTo(i, y);
     }
     ecgCtx.stroke();
     ecgCtx.restore();
 
-    /* Linea principale verde luminosa */
     ecgCtx.strokeStyle = '#33ff33';
     ecgCtx.lineWidth = 1.8;
     ecgCtx.shadowColor = '#33ff33';
     ecgCtx.shadowBlur = 6;
     ecgCtx.beginPath();
     let p = true;
-    for (let i = 0; i < ECG_LARGHEZZA_PX; i++) {
-      const idx = (ecgCursorX + 1 + i) % ECG_LARGHEZZA_PX;
-      const x = i;
+    for (let i = 0; i < ecgW; i++) {
+      const idx = (ecgCursorX + 1 + i) % ecgW;
       const y = centroY - ecgBuffer[idx] * scala;
-      if (p) { ecgCtx.moveTo(x, y); p = false; }
-      else ecgCtx.lineTo(x, y);
+      if (p) { ecgCtx.moveTo(i, y); p = false; } else ecgCtx.lineTo(i, y);
     }
     ecgCtx.stroke();
     ecgCtx.shadowBlur = 0;
 
-    /* Cursor luminoso */
-    const xCur = ECG_LARGHEZZA_PX - 1;
-    const yCur = centroY - ecgBuffer[(ecgCursorX) % ECG_LARGHEZZA_PX] * scala;
+    const xCur = ecgW - 1;
+    const yCur = centroY - ecgBuffer[ecgCursorX % ecgW] * scala;
     ecgCtx.beginPath();
     ecgCtx.arc(xCur, yCur, 3, 0, Math.PI * 2);
     ecgCtx.fillStyle = '#33ff33';
     ecgCtx.shadowColor = '#33ff33';
-    ecgCtx.shadowBlur = 12;
+    ecgCtx.shadowBlur = 10;
     ecgCtx.fill();
     ecgCtx.shadowBlur = 0;
 
-    /* Barra di scorrimento dopo il cursore */
     ecgCtx.fillStyle = '#0a0a0a';
-    ecgCtx.fillRect(ECG_LARGHEZZA_PX - 30, 0, 30, ECG_ALTEZZA_PX);
+    ecgCtx.fillRect(ecgW - 25, 0, 25, ECG_H);
   }
 
   /* --- Stato --- */
-  let flusso       = null;
-  let timer        = null;
-  let inEsecuzione = false;
-  let bpmCorrente  = '---';
-  let statoCorrente = 'in-attesa';
+  let flusso = null, timer = null, inEsecuzione = false, bpmCorrente = '---';
 
-  /* --- Illuminazione --- */
-  function aggiornaIlluminazione(dati) {
-    if (!dati) return;
-    luceTipo.textContent = dati.tipo || '---';
-    luceTipo.className = 'luce-valore ' + getClasseTipo(dati.tipo);
-    luceTemp.textContent = (dati.temperatura_cct || '---') + ' K';
-    luceTemp.className = 'luce-valore ' + getClasseTemp(dati.temperatura_cct);
-    luceLum.textContent = (dati.luminosita != null) ? Math.round(dati.luminosita) + '/255' : '---';
-    barraLum.style.width = ((dati.luminosita || 0) / 255 * 100) + '%';
-    if (dati.frequenza_rilevata) {
-      luceFreq.textContent = dati.frequenza_hz + ' Hz';
-      luceFreq.className = 'luce-valore neon';
-    } else {
-      luceFreq.textContent = 'Nessun flicker';
-      luceFreq.className = 'luce-valore naturale';
-    }
+  function aggIlluminazione(d) {
+    if (!d) return;
+    luceTipo.textContent = d.tipo || '---';
+    luceTipo.className = 'luce-valore ' + (d.tipo ? (d.tipo.toLowerCase().includes('neon')||d.tipo.toLowerCase().includes('fluoresc')?'neon':d.tipo.toLowerCase().includes('incandesc')?'incandescente':d.tipo.toLowerCase().includes('naturale')||d.tipo.toLowerCase().includes('diurn')?'naturale':'neutro') : '');
+    luceTemp.textContent = (d.temperatura_cct||'---')+' K';
+    luceLum.textContent = d.luminosita != null ? Math.round(d.luminosita)+'/255' : '---';
+    barraLum.style.width = ((d.luminosita||0)/255*100)+'%';
+    luceFreq.textContent = d.frequenza_rilevata ? d.frequenza_hz+' Hz' : 'Nessun flicker';
+    luceFreq.className = 'luce-valore ' + (d.frequenza_rilevata ? 'neon' : 'naturale');
   }
 
-  function getClasseTipo(tipo) {
-    if (!tipo) return '';
-    const t = tipo.toLowerCase();
-    if (t.includes('neon') || t.includes('fluoresc')) return 'neon';
-    if (t.includes('incandesc')) return 'incandescente';
-    if (t.includes('naturale') || t.includes('diurn')) return 'naturale';
-    return 'neutro';
-  }
-
-  function getClasseTemp(cct) {
-    if (!cct) return '';
-    if (cct < 3500) return 'incandescente';
-    if (cct < 5000) return 'neutro';
-    return 'naturale';
-  }
-
-  function aggiornaStato(viso, pronto, bpm) {
+  function aggStato(viso, pronto, bpm) {
     if (!viso) {
       indicatore.className = 'indicatore nessun-volto';
       statoTesto.textContent = 'Nessun volto rilevato';
       bpmEl.textContent = '---';
       bpmEl.className = 'ecg-bpm nessun-volto';
-      statoCorrente = 'nessun-volto';
     } else if (pronto && bpm > 0) {
       indicatore.className = 'indicatore pronto';
       statoTesto.textContent = 'Monitoraggio attivo';
       bpmCorrente = Math.round(bpm);
       bpmEl.textContent = bpmCorrente + ' BPM';
       bpmEl.className = 'ecg-bpm';
-      statoCorrente = 'pronto';
     } else {
       indicatore.className = 'indicatore in-attesa';
       statoTesto.textContent = 'Calcolo in corso...';
       bpmEl.textContent = '...';
       bpmEl.className = 'ecg-bpm in-attesa';
-      statoCorrente = 'in-attesa';
     }
   }
 
-  /* --- Webcam --- */
   async function avviaWebcam() {
     ferma();
     try {
       flusso = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { exact: LARGHEZZA },
-          height: { exact: ALTEZZA },
-          frameRate: { ideal: 15 }
-        }
+        video: { width: { exact: LARGHEZZA }, height: { exact: ALTEZZA }, frameRate: { ideal: 15 } }
       });
       video.srcObject = flusso;
       await video.play();
@@ -525,10 +460,7 @@
   function ferma() {
     if (timer) { clearInterval(timer); timer = null; }
     inEsecuzione = false;
-    if (flusso) {
-      flusso.getTracks().forEach(t => t.stop());
-      flusso = null;
-    }
+    if (flusso) { flusso.getTracks().forEach(t => t.stop()); flusso = null; }
     video.srcObject = null;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     btnAvvia.textContent = 'Avvia webcam';
@@ -536,9 +468,8 @@
 
   function resetta() {
     ferma();
-    ecgBuffer.fill(0);
-    ecgIndice = 0;
-    ecgCursorX = 0;
+    if (ecgBuffer) ecgBuffer.fill(0);
+    ecgIndice = 0; ecgCursorX = 0;
     ecgRidisegna();
     bpmCorrente = '---';
     bpmEl.textContent = '---';
@@ -554,54 +485,45 @@
     fetch('/api/reset', { method: 'POST' }).catch(() => {});
   }
 
-  /* --- Elaborazione frame --- */
   function avviaElaborazione() {
     inEsecuzione = true;
-    ecgBuffer.fill(0);
-    ecgIndice = 0;
-    ecgCursorX = 0;
+    if (ecgBuffer) ecgBuffer.fill(0);
+    ecgIndice = 0; ecgCursorX = 0;
 
-    const offscreen = document.createElement('canvas');
-    offscreen.width  = LARGHEZZA;
-    offscreen.height = ALTEZZA;
-    const offCtx = offscreen.getContext('2d');
-
+    const off = document.createElement('canvas');
+    off.width  = LARGHEZZA;
+    off.height = ALTEZZA;
+    const offCtx = off.getContext('2d');
     let inAttesa = false;
 
     timer = setInterval(() => {
       if (!inEsecuzione || inAttesa) return;
       inAttesa = true;
-
       offCtx.drawImage(video, 0, 0, LARGHEZZA, ALTEZZA);
-      offscreen.toBlob((blob) => {
+      off.toBlob((blob) => {
         if (!blob) { inAttesa = false; return; }
-        blobParaBase64(blob).then((base64) => {
+        blobParaBase64(blob).then((b64) => {
           fetch('/api/elabora', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ immagine: base64 })
-          }).then(risp => risp.json()).then((dati) => {
-            if (dati.errore) { inAttesa = false; return; }
-
-            aggiornaIlluminazione(dati.illuminazione);
-            aggiornaStato(dati.viso_rilevato, dati.pronto, dati.bpm);
-
-            if (!dati.viso_rilevato) {
+            body: JSON.stringify({ immagine: b64 })
+          }).then(r => r.json()).then((d) => {
+            if (d.errore) { inAttesa = false; return; }
+            aggIlluminazione(d.illuminazione);
+            aggStato(d.viso_rilevato, d.pronto, d.bpm);
+            if (!d.viso_rilevato) {
               ctx.clearRect(0, 0, canvas.width, canvas.height);
-              ecgBuffer.fill(0);
-              ecgIndice = 0;
-              ecgCursorX = 0;
+              if (ecgBuffer) ecgBuffer.fill(0);
+              ecgIndice = 0; ecgCursorX = 0;
               ecgRidisegna();
-              inAttesa = false;
-              return;
+              inAttesa = false; return;
             }
-
-            if (dati.roi) {
+            if (d.roi) {
               const img = new Image();
               img.onload = () => {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-                const ox = LARGHEZZA / 2 - AREA_LARG / 2;
-                const oy = ALTEZZA   / 2 - AREA_ALT  / 2;
+                const ox = LARGHEZZA/2 - AREA_LARG/2;
+                const oy = ALTEZZA/2 - AREA_ALT/2;
                 ctx.drawImage(img, ox, oy, AREA_LARG, AREA_ALT);
                 ctx.strokeStyle = 'rgba(51,255,51,0.6)';
                 ctx.lineWidth = 1.5;
@@ -609,14 +531,9 @@
                 inAttesa = false;
               };
               img.onerror = () => { inAttesa = false; };
-              img.src = 'data:image/jpeg;base64,' + dati.roi;
-            } else {
-              inAttesa = false;
-            }
-
-            if (dati.ppg && dati.ppg.length > 0) {
-              ecgAggiungiValori(dati.ppg);
-            }
+              img.src = 'data:image/jpeg;base64,' + d.roi;
+            } else { inAttesa = false; }
+            if (d.ppg && d.ppg.length > 0) ecgAggiungiValori(d.ppg);
             ecgRidisegna();
           }).catch(() => { inAttesa = false; });
         }).catch(() => { inAttesa = false; });
@@ -625,51 +542,42 @@
   }
 
   function blobParaBase64(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onloadend = () => res(r.result.split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(blob);
     });
   }
 
-  /* --- Screenshot --- */
   function salvaScreenshot() {
-    const temp = document.createElement('canvas');
-    temp.width  = LARGHEZZA;
-    temp.height = ALTEZZA;
-    const tCtx = temp.getContext('2d');
+    const t = document.createElement('canvas');
+    t.width  = LARGHEZZA;
+    t.height = ALTEZZA;
+    const tCtx = t.getContext('2d');
     tCtx.drawImage(video, 0, 0);
     tCtx.drawImage(canvas, 0, 0);
     tCtx.strokeStyle = 'rgba(51,255,51,0.6)';
     tCtx.lineWidth = 1.5;
-    tCtx.strokeRect(LARGHEZZA/2 - AREA_LARG/2, ALTEZZA/2 - AREA_ALT/2, AREA_LARG, AREA_ALT);
+    tCtx.strokeRect(LARGHEZZA/2-AREA_LARG/2, ALTEZZA/2-AREA_ALT/2, AREA_LARG, AREA_ALT);
     tCtx.fillStyle = '#33ff33';
     tCtx.font = 'bold 18px monospace';
-    tCtx.fillText(bpmCorrente + ' BPM', 10, 25);
-    const link = document.createElement('a');
-    link.download = 'battito_' + Date.now() + '.png';
-    link.href = temp.toDataURL('image/png');
-    link.click();
+    tCtx.fillText(bpmCorrente+' BPM', 10, 25);
+    const l = document.createElement('a');
+    l.download = 'battito_'+Date.now()+'.png';
+    l.href = t.toDataURL('image/png');
+    l.click();
   }
 
-  /* --- UI --- */
-  function mostraErrore(msg) {
-    erroreEl.textContent = msg;
-    erroreEl.style.display = 'block';
-  }
-  function nascondiErrore() {
-    erroreEl.style.display = 'none';
-  }
+  function mostraErrore(m) { erroreEl.textContent = m; erroreEl.style.display = 'block'; }
+  function nascondiErrore() { erroreEl.style.display = 'none'; }
 
-  /* --- Eventi --- */
-  btnAvvia.addEventListener('click', () => {
-    if (flusso && flusso.active) { ferma(); return; }
-    avviaWebcam();
-  });
+  btnAvvia.addEventListener('click', () => { if (flusso && flusso.active) ferma(); else avviaWebcam(); });
   btnReset.addEventListener('click', resetta);
   btnSalva.addEventListener('click', salvaScreenshot);
+  window.addEventListener('resize', ecgRidimensiona);
 
+  ecgInizializza();
   ecgRidisegna();
 })();
 </script>
