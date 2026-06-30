@@ -31,7 +31,7 @@ _cascade_volto = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
 )
 
-STORIA_LUMINOSITA_MAX = 150
+STORIA_LUMINOSITA_MAX = 200
 STORIA_PPG_MAX = 300
 
 
@@ -143,7 +143,7 @@ class ElaboratoreBattito:
 
         if not viso_rilevato:
             self._resetta_stato()
-            return 0, frame, False, False, dati_luce, []
+            return 0, frame, False, False, dati_luce, [], False
 
         area_rilevamento = self._estrae_centro(frame)
 
@@ -199,7 +199,7 @@ class ElaboratoreBattito:
         )
         bpm_sopra_150 = (
             bpm is not None
-            and bpm >= config.FREQUENZA_MASSIMA * 60 - 5
+            and bpm >= self.frequenze[self.maschera][-1] * 60 - 2
         )
         return bpm_medio, fotogramma_uscita, self.bpm_pronto, True, dati_luce, self.storia_ppg[-60:], bpm_sopra_150
 

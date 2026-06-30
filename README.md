@@ -103,7 +103,7 @@ responsabilita di configurazione, elaborazione del segnale e interfaccia utente.
 ```
 Acquisizione fotogramma → Rilevamento volto (Haar Cascade) →
 Estrazione ROI centrale → Piramide gaussiana (4 livelli) →
-Buffer circolare (150 fotogrammi) → Finestra di Hann →
+Buffer circolare (200 fotogrammi) → Finestra di Hann →
 FFT (asse temporale) → Filtro passa-banda (0.9–2.5 Hz) →
 Calcolo BPM (picco FFT + interpolazione parabolica) →
 IFFT → Rimozione finestra Hann → Amplificazione (α = 170) →
@@ -142,16 +142,16 @@ $0.9\text{--}2.5$ Hz, ben al di sotto del limite di Nyquist. La scelta di
 ### 3.2 Buffer circolare e risoluzione frequenziale
 
 La FFT (Fast Fourier Transform) viene calcolata su un buffer circolare di
-$N = 150$ fotogrammi, corrispondenti a una finestra temporale di $T = 10$
+$N = 200$ fotogrammi, corrispondenti a una finestra temporale di $T = 13.3$
 secondi:
 
-$$T = \frac{N}{f_s} = \frac{150}{15} = 10 \text{ s}$$
+$$T = \frac{N}{f_s} = \frac{200}{15} = 13.33 \text{ s}$$
 
 La **risoluzione in frequenza** (spaziatura tra bin della FFT) e data da:
 
-$$\Delta f = \frac{f_s}{N} = \frac{15}{150} = 0.1 \text{ Hz}$$
+$$\Delta f = \frac{f_s}{N} = \frac{15}{200} = 0.075 \text{ Hz}$$
 
-che corrisponde a $6$ BPM per bin. Per migliorare la precisione della stima,
+che corrisponde a $4.5$ BPM per bin. Per migliorare la precisione della stima,
 si adottano due tecniche:
 
 1. **Finestra di Hann:** applicata al segnale temporale prima della FFT per
@@ -162,7 +162,7 @@ si adottano due tecniche:
    estremi del buffer, riducendo i lobi laterali nello spettro a scapito di
    un moderato allargamento del lobo principale (main lobe broadening). Il
    lobo principale della finestra di Hann ha una larghezza di $4/N \cdot f_s
-   \approx 0.4$ Hz, corrispondente a circa 4 bin.
+   \approx 0.3$ Hz, corrispondente a circa 4 bin.
 
 2. **Interpolazione parabolica del picco:** dopo aver identificato il bin
    di massima ampiezza spettrale $k_{\max}$, si stima la posizione sub-bin
@@ -259,7 +259,196 @@ $\Delta = 15$ fotogrammi (1 secondo). La procedura e la seguente:
    la ricerca del picco a una finestra di ±20 BPM. Questo impedisce
    salti improvvisi a frequenze spurie. Se il picco nella finestra
    ristretta ha ampiezza inferiore al 70% del picco globale, si
-   utilizza comunque il picco globale (fallback).
+    utilizza comunque il picco globale (fallback).
+
+### 3.6 L'algoritmo EVM: fondamenti teorici
+
+Questa sezione presenta una traduzione e spiegazione dei concetti fondamentali
+dell'articolo originale di Wu, Rubinstein, Shih, Guttag, Durand e Freeman
+(2012), _Eulerian Video Magnification for Revealing Subtle Changes in the World_.
+
+#### 3.6.1 Obiettivo e visione d'insieme
+
+L'obiettivo dell'EVM e rivelare variazioni temporali nei video che sono
+difficili o impossibili da vedere a occhio nudo, e visualizzarle in modo
+indicativo. Il metodo prende un video standard come input, applica una
+**decomposizione spaziale** (piramide di Laplaciano o Gaussiana), seguita da
+un **filtraggio temporale** dei fotogrammi. Il segnale risultante viene quindi
+**amplificato** per rivelare informazioni nascoste.
+
+Come dichiarato dagli autori nell'abstract:
+
+> "Utilizzando il nostro metodo, siamo in grado di visualizzare il flusso
+> sanguigno mentre riempie il viso e anche di amplificare e rivelare piccoli
+> movimenti. La nostra tecnica puo funzionare in tempo reale per mostrare
+> fenomeni che avvengono a frequenze temporali selezionate dall'utente."
+
+#### 3.6.2 Approccio euleriano vs. lagrangiano
+
+L'articolo distingue due approcci fondamentali per la magnificazione del
+movimento:
+
+**Approccio lagrangiano:** si basa sulla stima esplicita del flusso ottico
+(optical flow) e sul tracciamento delle traiettorie dei pixel. I metodi
+precedenti (Liu et al. 2005; Wang et al. 2006) seguono questo paradigma:
+calcolano il movimento e lo amplificano. Richiedono una stima accurata del
+moto, che e computazionalmente costosa e puo introdurre artefatti.
+
+**Approccio euleriano (EVM):** opera in coordinate fisse nello spazio
+dell'immagine, senza tracciare esplicitamente il movimento. Invece di
+calcolare dove si sposta un punto, l'EVM analizza come varia nel tempo
+l'intensita di ciascun pixel in una data posizione spaziale. Questo e
+analogo alla descrizione euleriana dei fluidi, dove si osserva la velocita
+in punti fissi dello spazio piuttosto che seguire le particelle individuali.
+
+L'intuizione chiave e che il filtraggio temporale applicato a ogni pixel
+puo rivelare variazioni periodiche, tra cui sia variazioni cromatiche
+(come il rossore del viso durante il ciclo cardiaco) sia piccoli movimenti
+(tradotti in variazioni di intensita attraverso i gradienti spaziali).
+
+#### 3.6.3 Analisi matematica: approssimazione di Taylor del primo ordine
+
+L'articolo fornisce una giustificazione matematica per la magnificazione del
+movimento attraverso il filtraggio temporale. Consideriamo un segnale
+monodimensionale che subisce un moto traslatorio:
+
+$$I(x, t) = f(x + \delta(t))$$
+
+dove $f(x)$ e l'intensita dell'immagine al tempo $t=0$, e $\delta(t)$ e lo
+spostamento al tempo $t$. L'obiettivo della magnificazione e sintetizzare:
+
+$$\hat{I}(x, t) = f(x + (1+\alpha)\delta(t))$$
+
+cioe amplificare lo spostamento di un fattore $\alpha$.
+
+Sviluppando $I(x, t)$ in serie di Taylor del primo ordine intorno a $x$:
+
+$$I(x, t) \approx f(x) + \delta(t) \frac{\partial f(x)}{\partial x}$$
+
+Questa approssimazione e valida quando lo spostamento $\delta(t)$ e piccolo
+rispetto alla scala spaziale delle variazioni di $f(x)$.
+
+Applicando un filtro passa-banda temporale che preserva solo la banda
+frequenziale del moto di interesse, si ottiene:
+
+$$B(x, t) = \delta(t) \cdot \frac{\partial f(x)}{\partial x}$$
+
+cioe il segnale filtrato contiene lo spostamento moltiplicato per il
+gradiente spaziale. Amplificando questo segnale di un fattore $\alpha$ e
+sommando al segnale originale:
+
+$$\hat{I}(x, t) \approx f(x) + (1+\alpha)\delta(t) \frac{\partial f(x)}{\partial x}$$
+
+che, per l'approssimazione di Taylor, equivale a:
+
+$$\hat{I}(x, t) \approx f(x + (1+\alpha)\delta(t))$$
+
+dimostrando che il filtraggio temporale seguito da amplificazione produce
+una magnificazione del movimento.
+
+**Condizione di validita:** l'approssimazione lineare e valida quando la
+variazione spaziale e approssimativamente lineare nella regione di interesse.
+Gli autori derivano che la lunghezza d'onda spaziale $\lambda$ deve
+soddisfare:
+
+$$\lambda > \frac{1 + \alpha}{\alpha} \cdot \delta(t)$$
+
+per evitare artefatti. Questa condizione e soddisfatta dalle basse frequenze
+spaziali (alto livello piramidale) usate nell'implementazione PPG.
+
+#### 3.6.4 Pipeline di elaborazione completa
+
+L'articolo descrive la pipeline EVM in tre fasi:
+
+**Fase 1: Decomposizione spaziale**
+
+Per applicazioni di amplificazione cromatica (PPG), il segnale utile e
+spazialmente diffuso, quindi gli autori applicano un **filtro spaziale
+passa-basso** (piramide Gaussiana) per aumentare il rapporto segnale-rumore
+tramite pooling spaziale:
+
+> "Per tutte le applicazioni, il filtraggio temporale deve essere applicato
+> a basse frequenze spaziali (pooling spaziale) per permettere a un segnale
+> di input cosi sottile di emergere sopra il rumore del sensore e della
+> quantizzazione."
+
+Per applicazioni di amplificazione del movimento, gli autori utilizzano una
+**piramide di Laplaciano** completa, che separa il segnale in bande di
+frequenza spaziale. Questo permette di applicare diversi fattori di
+amplificazione a diverse scale, evitando artefatti dove l'approssimazione
+lineare non e valida (alte frequenze spaziali).
+
+**Fase 2: Filtraggio temporale**
+
+Il filtraggio temporale viene applicato uniformemente a tutti i pixel di
+ciascun livello spaziale. Per la visualizzazione del polso, gli autori
+utilizzano un filtro passa-banda ideale (o IIR) tipicamente nella banda
+$0.4\text{--}4$ Hz (24-240 BPM), oppure una banda ristretta intorno alla
+frequenza cardiaca estratta automaticamente.
+
+L'articolo menziona diverse opzioni per il filtro temporale: filtri IIR,
+filtri FIR, e filtri passa-banda ideali nel dominio di Fourier. La scelta
+dipende dall'applicazione: per la PPG si privilegia un filtro selettivo
+che isola la banda cardiaca.
+
+**Fase 3: Amplificazione e ricostruzione**
+
+Il segnale filtrato temporalmente viene moltiplicato per il fattore di
+amplificazione $\alpha$ e sommatto al fotogramma originale. La piramide
+viene quindi ricostruita per ottenere il video finale. Come sottolineato
+dagli autori:
+
+> "Poiche i video naturali sono spazialmente e temporalmente continui,
+> e poiche il nostro filtraggio e uniforme su tutti i pixel, il nostro
+> metodo mantiene implicitamente la coerenza spazio-temporale dei
+> risultati."
+
+#### 3.6.5 Scelta del fattore di amplificazione
+
+Il fattore $\alpha$ non puo essere arbitrariamente grande. L'articolo
+identifica due limiti fondamentali:
+
+1. **Rumore di quantizzazione:** amplificare il segnale amplifica anche
+   il rumore del sensore, inclusi il rumore termico e il rumore di
+   quantizzazione del convertitore A/D (8 bit per canale nei sensori
+   CMOS standard).
+
+2. **Saturazione dinamica:** il segnale amplificato, quando sommatto
+   all'originale, non deve superare il range dinamico del formato video
+   (0-255 per pixel a 8 bit). Valori superiori a 255 vengono troncati
+   (overflow), causando artefatti visivi.
+
+3. **Approssimazione di Taylor:** per la magnificazione del moto, il
+   fattore $\alpha$ deve rispettare il vincolo sulla lunghezza d'onda
+   spaziale descritto nella Sezione 3.6.3.
+
+Nell'articolo, i fattori di amplificazione utilizzati variano da $\alpha =
+10$ a $\alpha = 300$ a seconda del contenuto video e del livello di
+rumore. La nostra implementazione utilizza $\alpha = 170$, che rappresenta
+un compromesso ottimale tra amplificazione visibile e controllo del rumore.
+
+#### 3.6.6 Applicazione alla fotopletismografia
+
+Il caso d'uso principale dell'EVM per la PPG si basa sul seguente principio:
+il ciclo cardiaco modifica la quantita di sangue nel microcircolo cutaneo,
+alterando l'assorbimento della luce. Questa variazione, pur invisibile a
+occhio nudo, produce una modulazione periodica dell'intensita luminosa
+riflessa dalla pelle, tipicamente nella banda 0.4-4 Hz.
+
+L'articolo originale (Figura 1) mostra come una singola linea di scan
+verticale del volto, tracciata nel tempo, riveli le variazioni periodiche
+di colore dopo l'applicazione dell'EVM. Il segnale amplificato mostra
+chiaramente l'onda pulsatile che nel video originale e impercettibile.
+
+Nel nostro sistema:
+1. La **decomposizione spaziale** avviene tramite piramide Gaussiana a
+   4 livelli, selezionando il livello piu alto per il pooling spaziale
+2. Il **filtraggio temporale** e implementato come filtro passa-banda
+   ideale nel dominio di Fourier (1.0-2.5 Hz)
+3. Il **calcolo del BPM** avviene identificando il picco nello spettro
+   di ampiezza medio, con finestratura di Hann e interpolazione parabolica
+4. L'**amplificazione** usa $\alpha = 170$ con rimozione della finestra
+   di Hann dopo la IFFT per la corretta ricostruzione
 
 ---
 
@@ -296,7 +485,7 @@ Analogamente, per $f = 60$ Hz:
 $$f_{\text{alias}} = \left| 60 - 4 \cdot 15 \right| = 0 \text{ Hz (DC)}$$
 
 Il sistema cerca picchi significativi nello spettro della storia di
-luminosita (ultimi 150 campioni) nelle bande attese di aliasing.
+luminosita (ultimi 200 campioni) nelle bande attese di aliasing.
 
 ### 4.3 Bilanciamento cromatico e qualita del segnale
 
@@ -354,8 +543,8 @@ python main.py
 ```
 
 Avvia l'acquisizione dalla webcam predefinita (device index 0) e apre una finestra
-di visualizzazione OpenCV. La fase di inizializzazione richiede circa 10 secondi
-per il riempimento del buffer circolare. Durante l'esecuzione vengono generati
+di visualizzazione OpenCV. La fase di inizializzazione richiede circa 13 secondi
+per il riempimento del buffer circolare (200 fotogrammi). Durante l'esecuzione vengono generati
 due file video nella directory di lavoro corrente:
 
 | File                    | Descrizione                                      |
@@ -499,7 +688,7 @@ che mantiene uno stato persistente tra richieste HTTP successive:
 Browser (webcam)  -- JPEG (base64) --> Flask server -- BPM + ROI + PPG --> Browser
                                            |
                                     ElaboratoreBattito
-                                    - buffer circolare (150 frame)
+                                     - buffer circolare (200 frame)
                                     - piramide gaussiana (4 livelli)
                                     - finestra di Hann
                                     - FFT / filtro passa-banda
