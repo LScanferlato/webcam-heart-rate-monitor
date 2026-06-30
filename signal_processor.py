@@ -76,15 +76,41 @@ def applica_filtro_passa_banda(fft, maschera):
     return fft_filtrata
 
 
-def calcola_bpm(fft_media, frequenze):
+def calcola_bpm(fft_media, frequenze, bpm_riferimento=None):
     """
     Calcola il BPM dalla FFT media trovando il picco di frequenza dominante
     con interpolazione parabolica per accuratezza sub-bin.
     Ignora il componente DC (indice 0).
+
+    Se bpm_riferimento e' fornito, cerca il picco entro ±20 BPM
+    dal riferimento per evitare salti a frequenze spurie.
+    Se la finestra di ricerca non contiene picchi validi,
+    fa automaticamente fallback alla ricerca globale.
     """
     copia = fft_media.copy()
     copia[0] = 0
-    k = int(np.argmax(copia))
+
+    if bpm_riferimento is not None and bpm_riferimento > 0:
+        freq_riferimento = bpm_riferimento / 60.0
+        delta_freq = 20.0 / 60.0
+        cerca_da = max(0, freq_riferimento - delta_freq)
+        cerca_a = min(frequenze[-1], freq_riferimento + delta_freq)
+        maschera_ricerca = (frequenze >= cerca_da) & (frequenze <= cerca_a)
+        if maschera_ricerca.any():
+            k_ristretto = int(np.argmax(copia * maschera_ricerca))
+            picco_ristretto = copia[k_ristretto]
+            # Usa il picco ristretto solo se la magnitudine e' significativa
+            # rispetto al picco principale (almeno 70%)
+            k_globale = int(np.argmax(copia))
+            picco_globale = copia[k_globale]
+            if picco_globale > 0 and picco_ristretto / picco_globale >= 0.7:
+                k = k_ristretto
+            else:
+                k = k_globale
+        else:
+            k = int(np.argmax(copia))
+    else:
+        k = int(np.argmax(copia))
 
     # Interpolazione parabolica sub-bin
     if 1 <= k <= len(copia) - 2:

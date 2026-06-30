@@ -416,7 +416,7 @@
     luceFreq.className = 'luce-valore ' + (d.frequenza_rilevata ? 'neon' : 'naturale');
   }
 
-  function aggStato(viso, pronto, bpm) {
+  function aggStato(viso, pronto, bpm, sopra150) {
     if (!viso) {
       indicatore.className = 'indicatore nessun-volto';
       statoTesto.textContent = 'Nessun volto rilevato';
@@ -425,8 +425,13 @@
     } else if (pronto && bpm > 0) {
       indicatore.className = 'indicatore pronto';
       statoTesto.textContent = 'Monitoraggio attivo';
-      bpmCorrente = Math.round(bpm);
-      bpmEl.textContent = bpmCorrente + ' BPM';
+      if (sopra150) {
+        bpmCorrente = '>150';
+        bpmEl.textContent = '> 150 BPM';
+      } else {
+        bpmCorrente = Math.round(bpm);
+        bpmEl.textContent = bpmCorrente + ' BPM';
+      }
       bpmEl.className = 'ecg-bpm';
     } else {
       indicatore.className = 'indicatore in-attesa';
@@ -510,7 +515,7 @@
           }).then(r => r.json()).then((d) => {
             if (d.errore) { inAttesa = false; return; }
             aggIlluminazione(d.illuminazione);
-            aggStato(d.viso_rilevato, d.pronto, d.bpm);
+            aggStato(d.viso_rilevato, d.pronto, d.bpm, d.bpm_sopra_150);
             if (!d.viso_rilevato) {
               ctx.clearRect(0, 0, canvas.width, canvas.height);
               if (ecgBuffer) ecgBuffer.fill(0);

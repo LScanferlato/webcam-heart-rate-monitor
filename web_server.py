@@ -159,7 +159,8 @@ class ElaboratoreBattito:
         if self.indice_buffer % config.INTERVALLO_CALCOLO_BPM == 0:
             for idx in range(config.DIMENSIONE_BUFFER):
                 self.media_fft[idx] = np.abs(fft_filtrata[idx]).mean()
-            bpm = calcola_bpm(self.media_fft, self.frequenze)
+            bpm_riferimento = np.median(self.buffer_bpm[:self.valori_bpm_validi]) if self.valori_bpm_validi > 0 else None
+            bpm = calcola_bpm(self.media_fft, self.frequenze, bpm_riferimento)
             self.buffer_bpm[self.indice_bpm] = bpm
             self.indice_bpm = (self.indice_bpm + 1) % config.DIMENSIONE_BUFFER_BPM
             self.conteggio_calcoli += 1
@@ -192,11 +193,15 @@ class ElaboratoreBattito:
         self.indice_buffer = (self.indice_buffer + 1) % config.DIMENSIONE_BUFFER
 
         bpm_medio = (
-            self.buffer_bpm[: self.valori_bpm_validi].mean()
+            np.median(self.buffer_bpm[:self.valori_bpm_validi])
             if self.valori_bpm_validi > 0
             else 0
         )
-        return bpm_medio, fotogramma_uscita, self.bpm_pronto, True, dati_luce, self.storia_ppg[-60:]
+        bpm_sopra_150 = (
+            bpm is not None
+            and bpm >= config.FREQUENZA_MASSIMA * 60 - 5
+        )
+        return bpm_medio, fotogramma_uscita, self.bpm_pronto, True, dati_luce, self.storia_ppg[-60:], bpm_sopra_150
 
     def _estrae_centro(self, frame):
         """Estrae la porzione centrale del frame, ridimensionandola se necessario."""
@@ -243,7 +248,7 @@ def elabora():
     except Exception as e:
         return jsonify({"errore": f"Decodifica fallita: {e}"}), 400
 
-    bpm, roi_elaborata, pronto, viso_rilevato, dati_luce, segnale_ppg = (
+    bpm, roi_elaborata, pronto, viso_rilevato, dati_luce, segnale_ppg, bpm_sopra_150 = (
         elaboratore.elabora_fotogramma(frame)
     )
 
@@ -262,6 +267,7 @@ def elabora():
         "viso_rilevato": viso_rilevato,
         "illuminazione": dati_luce,
         "ppg": [round(v, 2) for v in segnale_ppg],
+        "bpm_sopra_150": bpm_sopra_150,
     })
 
 
